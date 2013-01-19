@@ -1,0 +1,20 @@
+{
+	"name": "grunt-amd-checkrequire",
+	"title": "grunt-amd-checkrequire",
+	"description": "Grunt task to check for broken AMD dependencies",
+	"version": "0.1.0",
+	"homepage": "https://github.com/zship/grunt-amd-checkrequire",
+	"author": "Zach Shipley <zach@zachshipley.com>",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/zship/grunt-amd-checkrequire"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"grunt": "0.3.x"
+	},
+	"keywords": [
+		"gruntplugin",
+		"amd"
+	]
+}
