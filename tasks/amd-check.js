@@ -10,7 +10,7 @@ module.exports = function(grunt) {
 	var _ = require('underscore');
 
 
-	grunt.registerTask('checkrequire', 'Checks for broken AMD dependencies', function() {
+	grunt.registerTask('amd-check', 'Checks for broken AMD dependencies', function() {
 		var config = grunt.config.get(this.name);
 		var done = this.async();
 
@@ -31,9 +31,10 @@ module.exports = function(grunt) {
 			}
 		).then(function(rjsconfig, parse) {
 
-			config.include = util.expand(config.include);
-			config.exclude = util.expand(config.exclude);
-			var files = _.difference(config.include, config.exclude);
+			var files = grunt.file.expand({filter: 'isFile'}, config.pool);
+			var found = false;
+
+			grunt.log.writeln('Scanning ' + files.length + ' files for unresolved dependencies...');
 
 			files.forEach(function(file) {
 				file = path.resolve(process.cwd() + '/' + file);
@@ -61,6 +62,7 @@ module.exports = function(grunt) {
 					});
 
 				if (deps.length) {
+					found = true;
 					grunt.log.writeln('');
 					grunt.log.error();
 					grunt.log.writeln('Unresolved dependencies in ' + file + ':');
@@ -70,6 +72,10 @@ module.exports = function(grunt) {
 				}
 			});
 
+			if (!found) {
+				grunt.log.writeln('All dependencies resolved properly!');
+			}
+
 			done();
 
 		});
@@ -77,8 +83,15 @@ module.exports = function(grunt) {
 	});
 
 
-	grunt.registerTask('whatrequires', 'Traces which files depend on given js file', function() {
-		var config = grunt.config.get(this.name);
+	grunt.registerTask('whatrequires', 'Traces which files depend on given js file', function(searchFile) {
+		searchFile = path.resolve(searchFile);
+
+		if (!grunt.file.exists(searchFile)) {
+			grunt.log.write(searchFile + ' does not exist! ').error();
+			return;
+		}
+
+		var config = grunt.config.get('amd-check');
 		var done = this.async();
 
 		var requirejs = require(libdir + '/r.js');
@@ -97,18 +110,11 @@ module.exports = function(grunt) {
 				return deferred.promise();
 			}
 		).then(function(rjsconfig, parse) {
+			var pool = grunt.file.expand({filter: 'isFile'}, config.pool);
 
-			var searchFile = path.resolve(process.cwd() + '/' + config.module);
+			var matches = pool.filter(function(file) {
+				file = path.resolve(file);
 
-			grunt.log.writeln('Files depending on ' + searchFile + ':');
-			grunt.log.writeln('-----------------------------------------------------------');
-
-			config.include = util.expand(config.include);
-			config.exclude = util.expand(config.exclude);
-			var pool = _.difference(config.include, config.exclude);
-
-			pool.forEach(function(file) {
-				file = path.resolve(process.cwd() + '/' + file);
 				var deps;
 				try {
 					deps = parse.findDependencies(file, grunt.file.read(file));
@@ -121,14 +127,37 @@ module.exports = function(grunt) {
 					return util.moduleToFileName(depPath, path.dirname(file), rjsconfig);
 				});
 
-				//console.log(file);
-				//console.log(JSON.stringify(deps, false, 4));
-
 				var match = _.intersection(deps, [searchFile]);
 				if (match.length) {
-					grunt.log.writeln(file);
+					return true;
 				}
+				return false;
 			});
+
+			switch (matches.length) {
+				case 0:
+					grunt.log.write('No files depend');
+					break;
+				case 1:
+					grunt.log.write('1 file depends');
+					break;
+				default:
+					grunt.log.write(matches.length + ' files depend');
+					break;
+			}
+
+			grunt.log.write(' on ' + searchFile);
+
+			if (!matches.length) {
+				grunt.log.write('.\n');
+			}
+			else {
+				grunt.log.write(':\n');
+				grunt.log.writeln('-----------------------------------------------------------');
+				matches.forEach(function(file) {
+					grunt.log.writeln(file);
+				});
+			}
 
 			done();
 

@@ -10,26 +10,6 @@ var Deferred = require('deferreds').Deferred;
 
 var util = {
 
-	/**
-	 * Transform globbed config values into lists of files
-	 * @param {Array|String} arr
-	 */
-	expand: function(arr) {
-		arr = arr || [];
-		var files = [];
-
-		if (_.isString(arr)) {
-			arr = [arr];
-		}
-
-		arr.forEach(function(val) {
-			files = files.concat(grunt.file.expand({filter: 'isFile'}, val));
-		});
-
-		return _.uniq(files);
-	},
-
-
 	loadConfig: function(config) {
 		var deferred = new Deferred();
 
