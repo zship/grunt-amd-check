@@ -10,8 +10,8 @@ module.exports = function(grunt) {
 	var _ = require('underscore');
 
 
-	grunt.registerTask('amd-check', 'Checks for broken AMD dependencies', function() {
-		var config = grunt.config.get(this.name);
+	grunt.registerMultiTask('amd-check', 'Checks for broken AMD dependencies', function() {
+		var files = this.filesSrc;
 		var done = this.async();
 
 		var requirejs = require(libdir + '/r.js');
@@ -31,7 +31,6 @@ module.exports = function(grunt) {
 			}
 		).then(function(rjsconfig, parse) {
 
-			var files = grunt.file.expand({filter: 'isFile'}, config.pool);
 			var found = false;
 
 			grunt.log.writeln('Scanning ' + files.length + ' files for unresolved dependencies...');
@@ -92,6 +91,8 @@ module.exports = function(grunt) {
 		}
 
 		var config = grunt.config.get('amd-check');
+		var pool = grunt.task.normalizeMultiTaskFiles(config.files)[0].src;
+
 		var done = this.async();
 
 		var requirejs = require(libdir + '/r.js');
@@ -110,8 +111,6 @@ module.exports = function(grunt) {
 				return deferred.promise();
 			}
 		).then(function(rjsconfig, parse) {
-			var pool = grunt.file.expand({filter: 'isFile'}, config.pool);
-
 			var matches = pool.filter(function(file) {
 				file = path.resolve(file);
 

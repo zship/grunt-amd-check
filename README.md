@@ -1,7 +1,7 @@
 grunt-amd-check
 ======================
 
-grunt-amd-check is a [grunt](http://gruntjs.com/) task to check for
+grunt-amd-check is a [grunt](http://gruntjs.com/) multitask to check for
 broken AMD dependencies in a project.
 
 
@@ -33,9 +33,9 @@ grunt-amd-check reads two sections of your config: `amd-check` and
 
 ```js
 'amd-check': {
-	//String or Array of files for which to trace dependencies
-	//grunt.file.expand() is called, so patterns beginning with "!" will be excluded
-	pool: ['src/**/*.js', 'test/spec/**/*.js']
+	//Grunt files configuration object for which to trace dependencies
+	//(more: http://gruntjs.com/configuring-tasks)
+	files: ['src/**/*.js', 'test/spec/**/*.js']
 },
 ```
 
@@ -54,13 +54,13 @@ Tasks
 
 ### amd-check
 
-`grunt amd-check` iterates through all files matched in the `pool` option and
+`grunt amd-check` iterates through all files matched in the `files` option and
 reports any dependencies which cannot be resolved to absolute paths.
 
 ### whatrequires
 
 `grunt whatrequires` accepts a single argument `searchFile` and iterates
-through all files matched in the `pool` option, looking for modules which list
+through all files matched in the `files` option, looking for modules which list
 `searchFile` as a dependency (in any valid RequireJS format). _Note: Grunt
 denotes arguments using a ":" character after the task name, followed by the
 argument._
