@@ -2,12 +2,12 @@ module.exports = function(grunt) {
 	'use strict';
 
 	var path = require('path');
-	var Deferred = require('deferreds.js/Deferred');
-	var Deferreds = require('deferreds.js/Deferreds');
+	var Deferred = require('deferreds').Deferred;
+	var Deferreds = require('deferreds');
 	var parseDir = './lib/parse';
 	var libdir = path.resolve(__dirname + '/lib');
 	var util = require('./util.js');
-	var _ = grunt.utils._;
+	var _ = require('underscore');
 
 
 	grunt.registerTask('checkrequire', 'Checks for broken AMD dependencies', function() {
