@@ -5,7 +5,7 @@ grunt-amd-check is a [grunt](http://gruntjs.com/) task to check for
 broken AMD dependencies in a project.
 
 
-Installataion
+Installation
 -------------
 
 From the same directory as your Gruntfile, run
