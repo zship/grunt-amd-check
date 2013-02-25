@@ -31,6 +31,9 @@ module.exports = function(grunt) {
 			}
 		).then(function(rjsconfig, parse) {
 
+			grunt.verbose.writeln('Loaded RequireJS config:');
+			grunt.verbose.writeln(JSON.stringify(rjsconfig, false, 4));
+
 			var found = false;
 
 			grunt.log.writeln('Scanning ' + files.length + ' files for unresolved dependencies...');
@@ -111,6 +114,10 @@ module.exports = function(grunt) {
 				return deferred.promise();
 			}
 		).then(function(rjsconfig, parse) {
+
+			grunt.verbose.writeln('Loaded RequireJS config:');
+			grunt.verbose.writeln(JSON.stringify(rjsconfig, false, 4));
+
 			var matches = pool.filter(function(file) {
 				file = path.resolve(file);
 

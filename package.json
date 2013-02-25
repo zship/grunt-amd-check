@@ -1,23 +1,23 @@
 {
-	"name": "grunt-amd-check",
-	"title": "grunt-amd-check",
-	"description": "Grunt task to check for broken AMD dependencies",
-	"version": "0.4.1",
-	"homepage": "https://github.com/zship/grunt-amd-check",
-	"author": "Zach Shipley <zach@zachshipley.com>",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/zship/grunt-amd-check"
-	},
-	"license": "MIT",
-	"dependencies": {
-		"grunt": "0.4.x",
-		"underscore": "1.4.x",
-		"mout": "0.3.x",
-		"deferreds": "0.2.x"
-	},
-	"keywords": [
-		"gruntplugin",
-		"amd"
-	]
+  "name": "grunt-amd-check",
+  "title": "grunt-amd-check",
+  "description": "Grunt task to check for broken AMD dependencies",
+  "version": "0.4.2",
+  "homepage": "https://github.com/zship/grunt-amd-check",
+  "author": "Zach Shipley <zach@zachshipley.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zship/grunt-amd-check"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "grunt": "0.4.x",
+    "underscore": "1.4.x",
+    "mout": "0.3.x",
+    "deferreds": "0.2.x"
+  },
+  "keywords": [
+    "gruntplugin",
+    "amd"
+  ]
 }
