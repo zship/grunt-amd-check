@@ -1,8 +1,10 @@
 grunt-amd-check
-======================
+===============
 
 grunt-amd-check is a [grunt](http://gruntjs.com/) multitask to check for
 broken AMD dependencies in a project.
+
+This plugin requires Grunt `~0.4.0`
 
 
 Installation
