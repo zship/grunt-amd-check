@@ -75,11 +75,10 @@ module.exports = function(grunt) {
 				return amd.moduleToFileName(depPath, path.dirname(file), rjsconfig);
 			});
 
-			var match = _.intersection(deps, [searchFile]);
-			if (match.length) {
-				return true;
-			}
-			return false;
+			return deps.some(function(dep) {
+				//take case-insensitive filesystems like HFS+ into account
+				return dep && dep.toLowerCase() === searchFile.toLowerCase();
+			});
 		});
 
 		switch (matches.length) {
