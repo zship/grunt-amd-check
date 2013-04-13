@@ -69,3 +69,10 @@ argument._
 
 Example: `grunt whatrequires:src/js/BaseController.js` might report
 `src/js/HomeController.js` and `src/js/NavigationController.js` as dependents.
+
+
+License
+-------
+
+Released under the [MIT
+License](http://www.opensource.org/licenses/mit-license.php).
