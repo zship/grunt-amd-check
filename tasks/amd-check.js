@@ -1,9 +1,44 @@
 module.exports = function(grunt) {
+
 	'use strict';
 
 	var path = require('path');
 	var amd = require('grunt-lib-amd');
 	var _ = require('underscore');
+
+
+	var _getPlugin = function(pluginName, rjsconfig) {
+		rjsconfig.nodeRequire = require;
+		amd.requirejs.config(rjsconfig);
+
+		var plugin = amd.requirejs(pluginName);
+
+		if (!plugin || !plugin.load) {
+			throw '"' + pluginName + '" plugin could not be resolved';
+		}
+
+		return plugin;
+	};
+
+
+	var _pluginCanLoad = function(plugin, loadArgs) {
+		var didLoad = false;
+		var load = function() {
+			didLoad = true;
+		};
+		load.fromText = function() {
+			didLoad = true;
+		};
+
+		try {
+			plugin.load(loadArgs, amd.requirejs, load, {});
+		}
+		catch(e) {
+			return false;
+		}
+
+		return didLoad;
+	};
 
 
 	grunt.registerMultiTask('amd-check', 'Checks for broken AMD dependencies', function() {
@@ -21,19 +56,51 @@ module.exports = function(grunt) {
 			file = path.resolve(process.cwd() + '/' + file);
 			var deps =
 				amd.getDeps(file)
-				.filter(function(depPath) {
-					//ignore special 'require' dependency
-					return depPath !== 'require';
-				})
-				.map(function(depPath) {
+			.filter(function(depPath) {
+				//ignore special 'require' dependency
+				return depPath !== 'require';
+			})
+			.map(function(depPath) {
+				if (depPath.search(/!/) !== -1) {
+					var rParts = /^(.*)!(.*)$/;
+					var parts = depPath.match(rParts);
+					var pluginName = parts[1];
+					var pluginArgs = parts[2];
+
+					var plugin;
+					try {
+						plugin = _getPlugin(pluginName, rjsconfig);
+					}
+					catch(e) {
+						return {
+							declared: depPath,
+							resolved: false,
+							message: 'Error on \u001b[4m\u001b[31m' + pluginName + '\u001b[0m!' + pluginArgs + ': "' + pluginName + '" plugin could not be resolved'
+						};
+					}
+
+					if (!_pluginCanLoad(plugin, pluginArgs)) {
+						return {
+							declared: depPath,
+							resolved: false,
+							message: 'Error on ' + pluginName + '!\u001b[4m\u001b[31m' + pluginArgs + '\u001b[0m: "' + pluginName + '" plugin could not load with given arguments'
+						};
+					}
+
 					return {
 						declared: depPath,
-						resolved: amd.moduleToFileName(depPath, path.dirname(file), rjsconfig)
+						resolved: true
 					};
-				})
-				.filter(function(dep) {
-					return !dep.resolved;
-				});
+				}
+
+				return {
+					declared: depPath,
+					resolved: amd.moduleToFileName(depPath, path.dirname(file), rjsconfig)
+				};
+			})
+			.filter(function(dep) {
+				return !dep.resolved;
+			});
 
 			if (deps.length) {
 				found = true;
@@ -42,6 +109,9 @@ module.exports = function(grunt) {
 				grunt.log.writeln('Unresolved dependencies in ' + file + ':');
 				deps.forEach(function(dep) {
 					grunt.log.writeln('\t' + dep.declared);
+					if (dep.message) {
+						grunt.log.writeln('\t\t' + dep.message);
+					}
 				});
 			}
 		});
@@ -82,15 +152,15 @@ module.exports = function(grunt) {
 		});
 
 		switch (matches.length) {
-			case 0:
-				grunt.log.write('No files depend');
-				break;
-			case 1:
-				grunt.log.write('1 file depends');
-				break;
-			default:
-				grunt.log.write(matches.length + ' files depend');
-				break;
+		case 0:
+			grunt.log.write('No files depend');
+			break;
+		case 1:
+			grunt.log.write('1 file depends');
+			break;
+		default:
+			grunt.log.write(matches.length + ' files depend');
+			break;
 		}
 
 		grunt.log.write(' on ' + searchFile);
