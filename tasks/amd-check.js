@@ -126,9 +126,14 @@ module.exports = function(grunt) {
 		}
 
 		grunt.log.write('\n\n');
-		grunt.log.writeln('Checking for circular dependencies...\n');
+		grunt.log.writeln('Checking for circular dependencies...');
 
 		found = [];
+		_.each(depCache, function(deps, file) {
+			depCache[file] = deps.map(function(dep) {
+				return amd.moduleToFileName(dep, path.dirname(file), rjsconfig);
+			});
+		});
 
 		var checkCircular = function(file, graphPath) {
 			var i = graphPath.indexOf(file);
@@ -139,13 +144,14 @@ module.exports = function(grunt) {
 			}
 			graphPath.push(file);
 
-			if (!depCache[file]) {
-				depCache[file] = amd.getDeps(file);
+			if (depCache[file] === undefined) {
+				depCache[file] = amd.getDeps(file).map(function(dep) {
+					return amd.moduleToFileName(dep, path.dirname(file), rjsconfig);
+				});
 			}
 
 			depCache[file].forEach(function(dep) {
-				var filename = amd.moduleToFileName(dep, path.dirname(file), rjsconfig);
-				checkCircular(filename, graphPath.slice());
+				checkCircular(dep, graphPath.slice());
 			});
 		};
 
@@ -180,7 +186,7 @@ module.exports = function(grunt) {
 		};
 
 		var dupes = [];
-		var deduped = found.filter(function(loop, i) {
+		found = found.filter(function(loop, i) {
 			if (i === 0) {
 				return true;
 			}
@@ -203,9 +209,15 @@ module.exports = function(grunt) {
 			return !isDuplicate;
 		});
 
-		grunt.log.writeln('\u001b[31mWarning:\u001b[0m ' + deduped.length + ' circular dependencies found:');
+		if (!found.length) {
+			grunt.log.writeln('No circular dependencies found!');
+			return;
+		}
 
-		deduped.forEach(function(loop) {
+		grunt.log.write('\n');
+		grunt.log.writeln('\u001b[31mWarning:\u001b[0m ' + found.length + ' circular dependencies found:');
+
+		found.forEach(function(loop) {
 			grunt.log.writeln(
 				loop
 					.concat([loop[0]])
