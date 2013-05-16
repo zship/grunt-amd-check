@@ -41,8 +41,10 @@ module.exports = function(grunt) {
 	};
 
 
-	grunt.registerMultiTask('amd-check', 'Checks for broken AMD dependencies', function() {
-		var files = this.filesSrc;
+	grunt.registerMultiTask('amd-check', 'Checks AMD modules for unresolvable dependencies and circular dependencies', function() {
+		var files = this.filesSrc.map(function(file) {
+			return path.resolve(process.cwd() + '/' + file);
+		});
 		var rjsconfig = amd.loadConfig(grunt.config.get('requirejs'));
 
 		grunt.verbose.writeln('Loaded RequireJS config:');
@@ -52,61 +54,64 @@ module.exports = function(grunt) {
 
 		grunt.log.writeln('Scanning ' + files.length + ' files for unresolved dependencies...');
 
+		var depCache = {};
+
 		files.forEach(function(file) {
-			file = path.resolve(process.cwd() + '/' + file);
-			var deps =
-				amd.getDeps(file)
-			.filter(function(depPath) {
-				//ignore special 'require' dependency
-				return depPath !== 'require';
-			})
-			.map(function(depPath) {
-				if (depPath.search(/!/) !== -1) {
-					var rParts = /^(.*)!(.*)$/;
-					var parts = depPath.match(rParts);
-					var pluginName = parts[1];
-					var pluginArgs = parts[2];
+			depCache[file] = amd.getDeps(file);
+		});
 
-					var plugin;
-					try {
-						plugin = _getPlugin(pluginName, rjsconfig);
-					}
-					catch(e) {
+		files.forEach(function(file) {
+			var deps = depCache[file]
+				.filter(function(depPath) {
+					//ignore special 'require' dependency
+					return depPath !== 'require';
+				})
+				.map(function(depPath) {
+					if (depPath.search(/!/) !== -1) {
+						var rParts = /^(.*)!(.*)$/;
+						var parts = depPath.match(rParts);
+						var pluginName = parts[1];
+						var pluginArgs = parts[2];
+
+						var plugin;
+						try {
+							plugin = _getPlugin(pluginName, rjsconfig);
+						}
+						catch(e) {
+							return {
+								declared: depPath,
+								resolved: false,
+								message: 'Error on \u001b[4m\u001b[31m' + pluginName + '\u001b[0m!' + pluginArgs + ': "' + pluginName + '" plugin could not be resolved'
+							};
+						}
+
+						if (!_pluginCanLoad(plugin, pluginArgs)) {
+							return {
+								declared: depPath,
+								resolved: false,
+								message: 'Error on ' + pluginName + '!\u001b[4m\u001b[31m' + pluginArgs + '\u001b[0m: "' + pluginName + '" plugin could not load with given arguments'
+							};
+						}
+
 						return {
 							declared: depPath,
-							resolved: false,
-							message: 'Error on \u001b[4m\u001b[31m' + pluginName + '\u001b[0m!' + pluginArgs + ': "' + pluginName + '" plugin could not be resolved'
-						};
-					}
-
-					if (!_pluginCanLoad(plugin, pluginArgs)) {
-						return {
-							declared: depPath,
-							resolved: false,
-							message: 'Error on ' + pluginName + '!\u001b[4m\u001b[31m' + pluginArgs + '\u001b[0m: "' + pluginName + '" plugin could not load with given arguments'
+							resolved: true
 						};
 					}
 
 					return {
 						declared: depPath,
-						resolved: true
+						resolved: amd.moduleToFileName(depPath, path.dirname(file), rjsconfig)
 					};
-				}
-
-				return {
-					declared: depPath,
-					resolved: amd.moduleToFileName(depPath, path.dirname(file), rjsconfig)
-				};
-			})
-			.filter(function(dep) {
-				return !dep.resolved;
-			});
+				})
+				.filter(function(dep) {
+					return !dep.resolved;
+				});
 
 			if (deps.length) {
 				found = true;
 				grunt.log.writeln('');
-				grunt.log.error();
-				grunt.log.writeln('Unresolved dependencies in ' + file + ':');
+				grunt.log.writeln('\u001b[31mWarning:\u001b[0m Unresolved dependencies in ' + file + ':');
 				deps.forEach(function(dep) {
 					grunt.log.writeln('\t' + dep.declared);
 					if (dep.message) {
@@ -119,6 +124,97 @@ module.exports = function(grunt) {
 		if (!found) {
 			grunt.log.writeln('All dependencies resolved properly!');
 		}
+
+		grunt.log.write('\n\n');
+		grunt.log.writeln('Checking for circular dependencies...\n');
+
+		found = [];
+
+		var checkCircular = function(file, graphPath) {
+			var i = graphPath.indexOf(file);
+			if (i !== -1) {
+				var loop = graphPath.slice(i);
+				found.push(loop);
+				return;
+			}
+			graphPath.push(file);
+
+			if (!depCache[file]) {
+				depCache[file] = amd.getDeps(file);
+			}
+
+			depCache[file].forEach(function(dep) {
+				var filename = amd.moduleToFileName(dep, path.dirname(file), rjsconfig);
+				checkCircular(filename, graphPath.slice());
+			});
+		};
+
+		files.forEach(function(file) {
+			checkCircular(file, []);
+		});
+
+		//eliminate duplicate circular dependency loops
+		var _rotated = function(arr, i) {
+			var ret = arr.slice(0);
+			for (var j = 0; j < i; j++) {
+				ret = [ret[ret.length - 1]].concat(ret.slice(0, ret.length - 1));
+			}
+			return ret;
+		};
+
+		var _equal = function(first, second) {
+			return JSON.stringify(first) === JSON.stringify(second);
+		};
+
+		//loops are "equal" if their elements are equal when "shifted" to the right by some amount
+		var _loopEqual = function(first, second) {
+			if (_equal(first, second)) {
+				return true;
+			}
+			for (var i = 1; i <= first.length; i++) {
+				if (_equal(first, _rotated(second, i))) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		var dupes = [];
+		var deduped = found.filter(function(loop, i) {
+			if (i === 0) {
+				return true;
+			}
+
+			var isDuplicate = false;
+			var before = found.slice(0, i - 1);
+			before.every(function(candidateLoop, j) {
+				if (dupes.indexOf(j) !== -1) {
+					return true; //continue
+				}
+				if (_loopEqual(loop, candidateLoop)) {
+					isDuplicate = true;
+					return false;
+				}
+				return true;
+			});
+			if (isDuplicate) {
+				dupes.push(i);
+			}
+			return !isDuplicate;
+		});
+
+		grunt.log.writeln('\u001b[31mWarning:\u001b[0m ' + deduped.length + ' circular dependencies found:');
+
+		deduped.forEach(function(loop) {
+			grunt.log.writeln(
+				loop
+					.concat([loop[0]])
+					.map(function(file) {
+						return amd.fileToModuleName(file, rjsconfig);
+					})
+					.join(' -> ')
+			);
+		});
 
 	});
 

@@ -2,7 +2,7 @@
 	"name": "grunt-amd-check",
 	"title": "grunt-amd-check",
 	"description": "Grunt task to check for broken AMD dependencies",
-	"version": "0.4.6",
+	"version": "0.5.0",
 	"homepage": "https://github.com/zship/grunt-amd-check",
 	"author": "Zach Shipley <zach@zachshipley.com>",
 	"repository": {
