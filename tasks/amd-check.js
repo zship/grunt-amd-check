@@ -126,7 +126,7 @@ module.exports = function(grunt) {
 		}
 
 		grunt.log.write('\n\n');
-		grunt.log.writeln('Checking for circular dependencies...');
+		grunt.log.write('Checking for circular dependencies...');
 
 		found = [];
 		_.each(depCache, function(deps, file) {
@@ -186,47 +186,162 @@ module.exports = function(grunt) {
 		};
 
 		var dupes = [];
-		found = found.filter(function(loop, i) {
-			if (i === 0) {
-				return true;
-			}
+		found = found
+			.filter(function(loop, i) {
+				if (i === 0) {
+					return true;
+				}
 
-			var isDuplicate = false;
-			var before = found.slice(0, i - 1);
-			before.every(function(candidateLoop, j) {
-				if (dupes.indexOf(j) !== -1) {
-					return true; //continue
+				var isDuplicate = false;
+				var before = found.slice(0, i - 1);
+				before.every(function(candidateLoop, j) {
+					if (dupes.indexOf(j) !== -1) {
+						return true; //continue
+					}
+					if (_loopEqual(loop, candidateLoop)) {
+						isDuplicate = true;
+						return false;
+					}
+					return true;
+				});
+				if (isDuplicate) {
+					dupes.push(i);
 				}
-				if (_loopEqual(loop, candidateLoop)) {
-					isDuplicate = true;
-					return false;
-				}
-				return true;
+				return !isDuplicate;
+			})
+			.map(function(loop) {
+				return loop.map(function(file) {
+					return amd.fileToModuleName(file, rjsconfig);
+				});
 			});
-			if (isDuplicate) {
-				dupes.push(i);
-			}
-			return !isDuplicate;
-		});
 
 		if (!found.length) {
-			grunt.log.writeln('No circular dependencies found!');
+			grunt.log.writeln(' none found');
 			return;
 		}
 
-		grunt.log.write('\n');
-		grunt.log.writeln('\u001b[31mWarning:\u001b[0m ' + found.length + ' circular dependencies found:');
+		grunt.log.writeln('\u001b[31m ' + found.length + ' found:\u001b[0m\n');
 
-		found.forEach(function(loop) {
-			grunt.log.writeln(
-				loop
-					.concat([loop[0]])
-					.map(function(file) {
-						return amd.fileToModuleName(file, rjsconfig);
-					})
-					.join(' -> ')
-			);
+		/*
+		 *found.forEach(function(loop) {
+		 *    grunt.log.writeln(
+		 *        loop
+		 *            .concat([loop[0]])
+		 *            .join(' -> ')
+		 *    );
+		 *});
+		 */
+
+
+		var _longestCommonSublist = function(first, second) {
+			var start = 0;
+			var max = 0;
+
+			for (var i = 0; i < first.length; i++) {
+				for (var j = 0; j < second.length; j++) {
+					var x = 0;
+					while (first[i + x] === second[j + x]) {
+						x++;
+						if ((i + x >= first.length) || (j + x >= second.length)) {
+							break;
+						}
+					}
+					if (x > max) {
+						max = x;
+						start = i;
+					}
+				}
+			}
+
+			return first.slice(start, start + max);
+		};
+
+		var _longestCommonSublistInLoops = function(first, second) {
+			var bestCase = Math.min(first.length, second.length);
+			var max = [];
+
+			for (var i = 0; i < first.length; i++) {
+				var firstList = _rotated(first, i);
+				for (var j = 0; j < second.length; j++) {
+					var secondList = _rotated(second, j);
+					var commonSublist = _longestCommonSublist(firstList, secondList);
+					if (commonSublist.length === bestCase) {
+						return commonSublist;
+					}
+					if (commonSublist.length > max.length) {
+						max = commonSublist;
+					}
+				}
+			}
+
+			return max;
+		};
+
+		var _grouped = function(loops) {
+			var worstLength = 2;
+			var groups = {};
+
+			for (var i = 0; i < loops.length; i++) {
+				var first = loops[i];
+				for (var j = 0; j < loops.length; j++) {
+					if (i === j) {
+						continue;
+					}
+
+					var second = loops[j];
+					var commonSublist = _longestCommonSublistInLoops(first, second);
+					if (commonSublist.length >= worstLength) {
+						var key = commonSublist.join(',');
+						groups[key] = groups[key] || [];
+						groups[key].push(first);
+						groups[key].push(second);
+					}
+				}
+			}
+
+			_.each(groups, function(loops, key) {
+				groups[key] = _.uniq(loops);
+			});
+
+			return groups;
+		};
+
+		var grouped = _grouped(found);
+		var ungrouped = _.difference(
+			found,
+			_.reduce(grouped, function(memo, loops) {
+				return memo.concat(loops);
+			}, [])
+		);
+
+		_.each(grouped, function(loops, key) {
+			grunt.log.writeln('Grouped by longest common subpath:');
+			var group = key.split(',');
+			grunt.log.writeln('{ ' + group.join(' -> ') + ' }');
+
+			loops
+				.sort(function(a, b) {
+					return a.length - b.length;
+				})
+				.map(function(loop) {
+					for (var i = 0; i < loop.length; i++) {
+						var rotated = _rotated(loop, i);
+						if (rotated[0] === group[0]) {
+							return rotated;
+						}
+					}
+				})
+				.forEach(function(loop) {
+					grunt.log.write('\t' + loop.join(' -> '));
+					grunt.log.write(' ( -> ' + loop[0] + ' -> ...)\n');
+				});
 		});
+
+		ungrouped.forEach(function(loop) {
+			grunt.log.write(loop.join(' -> '));
+			grunt.log.write(' ( -> ' + loop[0] + ' -> ...)\n');
+		});
+
 
 	});
 
